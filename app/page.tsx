@@ -1,69 +1,145 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Header from "@/components/Header";
+import ChatContainer from "@/components/ChatContainer";
+import MessageInput from "@/components/MessageInput";
+
+type Role = "user" | "assistant" | "system";
+
+interface Message {
+  id: string;
+  role: Role;
+  content: string;
+}
+
+const STORAGE_KEY = "reongpt:messages:v1";
+
+function uid() {
+  // crypto.randomUUID() is widely supported; fallback just in case.
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
 
 export default function Home() {
-  const [message, setMessage] = useState("");
-  const [chat, setChat] = useState<{ role: string; content: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const sendMessage = async () => {
-    if (!message.trim()) return;
+  /** Load previous conversation (if any) */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setMessages(JSON.parse(saved));
+      } else {
+        // Optional friendly greeting on first load
+        setMessages([
+          {
+            id: uid(),
+            role: "assistant",
+            content: "Hello! How can I assist you today?",
+          },
+        ]);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
 
-    const newChat = [...chat, { role: "user", content: message }];
-    setChat(newChat);
-    setMessage("");
+  /** Persist to localStorage + scroll to bottom on every change */
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {
+      // ignore
+    }
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  /** Send a message -> hit /api/chat -> append reply */
+  const sendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const userMessage: Message = { id: uid(), role: "user", content: trimmed };
+    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message: trimmed }),
       });
 
-      const data = await res.json();
-      setChat([...newChat, { role: "assistant", content: data.reply }]);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = (await res.json()) as { reply?: string };
+      const reply =
+        typeof data?.reply === "string" && data.reply.length > 0
+          ? data.reply
+          : "Hmm, I couldn't generate a response. Please try again.";
+
+      const assistantMessage: Message = {
+        id: uid(),
+        role: "assistant",
+        content: reply,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
-      setChat([...newChat, { role: "assistant", content: "❌ Error calling API" }]);
+      const errorMessage: Message = {
+        id: uid(),
+        role: "assistant",
+        content: "⚠️ Error fetching response. Please try again.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-6 bg-gray-50">
-      <div className="w-full max-w-2xl bg-white shadow rounded-xl p-6">
-        <h1 className="text-2xl font-bold mb-4">💬 Reon GPT</h1>
-        <div className="space-y-3 h-96 overflow-y-auto border p-3 rounded">
-          {chat.map((c, i) => (
-            <div
-              key={i}
-              className={`p-2 rounded-md ${
-                c.role === "user" ? "bg-blue-100 text-right" : "bg-gray-100 text-left"
-              }`}
-            >
-              <b>{c.role === "user" ? "You" : "Reon GPT"}:</b> {c.content}
-            </div>
-          ))}
-          {loading && <div className="text-gray-500">Thinking...</div>}
-        </div>
+  /** Optional helpers: you can hook these into buttons later if you like */
+  const clearConversation = () => {
+    setMessages([
+      {
+        id: uid(),
+        role: "assistant",
+        content: "Chat cleared. How can I help you next?",
+      },
+    ]);
+  };
 
-        <div className="flex mt-4 gap-2">
-          <input
-            className="flex-1 border rounded px-3 py-2"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type your message..."
-          />
-          <button
-            onClick={sendMessage}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Send
-          </button>
+  const regenerateLastAnswer = async () => {
+    // Find the last user message and ask again
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    if (lastUser) {
+      await sendMessage(lastUser.content);
+    }
+  };
+
+  return (
+    <div className="flex h-screen flex-col bg-gradient-to-b from-white to-gray-100 dark:from-gray-950 dark:to-black">
+      <Header />
+      <main className="flex-1 overflow-hidden">
+        <div className="mx-auto h-full max-w-3xl px-4">
+          <ChatContainer messages={messages} loading={loading} />
+          <div ref={chatEndRef} />
         </div>
-      </div>
-    </main>
+      </main>
+
+      <footer className="sticky bottom-0 w-full bg-white/70 backdrop-blur dark:bg-black/50">
+        <div className="mx-auto max-w-3xl px-4 py-3">
+          <MessageInput onSend={sendMessage} />
+          {/* If you later expose extra actions in MessageInput, you can pass:
+              onClear={clearConversation} onRegenerate={regenerateLastAnswer} */}
+        </div>
+      </footer>
+    </div>
   );
 }
