@@ -3,23 +3,24 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, Paperclip, Send, Zap } from "lucide-react";
 
-interface Props {
+export default function MessageInput({
+  onSend,
+  onQuickPrompt,
+}: {
   onSend: (text: string) => void;
   onQuickPrompt?: (text: string) => void;
-}
-
-const QUICK_PROMPTS = [
-  "Summarize this:",
-  "Translate to English:",
-  "Improve this writing:",
-  "Explain like I’m 12:",
-  "Review this code:",
-];
-
-export default function MessageInput({ onSend, onQuickPrompt }: Props) {
+}) {
   const [value, setValue] = useState("");
   const [openQuick, setOpenQuick] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
+
+  const QUICK = [
+    "Summarize this:",
+    "Translate to English:",
+    "Improve this writing:",
+    "Explain like I’m 12:",
+    "Review this code:",
+  ];
 
   // autosize
   useEffect(() => {
@@ -42,7 +43,6 @@ export default function MessageInput({ onSend, onQuickPrompt }: Props) {
         <button
           className="rounded-lg p-2 text-zinc-500 hover:bg-black/5 dark:hover:bg-white/10"
           aria-label="Attach file"
-          title="Attach file"
         >
           <Paperclip className="h-5 w-5" />
         </button>
@@ -91,7 +91,7 @@ export default function MessageInput({ onSend, onQuickPrompt }: Props) {
 
       {openQuick && (
         <div className="mt-2 flex flex-wrap gap-2">
-          {QUICK_PROMPTS.map((q) => (
+          {QUICK.map((q) => (
             <button
               key={q}
               onClick={() => onQuickPrompt?.(q)}

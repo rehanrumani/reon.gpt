@@ -3,22 +3,18 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun, User, Trash2 } from "lucide-react";
 
-interface Props {
-  onClear?: () => void;
-}
-
-export default function Header({ onClear }: Props) {
+export default function Header({ onClear }: { onClear?: () => void }) {
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Persisted theme
   useEffect(() => {
     const stored = localStorage.getItem("theme");
     const dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
     setIsDark(dark);
     document.documentElement.classList.toggle("dark", dark);
   }, []);
-  const toggleTheme = () => {
+
+  const toggle = () => {
     const next = !isDark;
     setIsDark(next);
     document.documentElement.classList.toggle("dark", next);
@@ -29,7 +25,7 @@ export default function Header({ onClear }: Props) {
     <header className="sticky top-0 z-30 w-full border-b border-black/5 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-black/50">
       <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
         <div className="text-xl font-semibold tracking-tight">
-          <span className="rounded-xl bg-black/90 px-2 py-1 text-white dark:bg-white/90 dark:text-black">
+          <span className="rounded-xl bg-black/90 px-2 py-1 text-white dark:bg-white dark:text-black">
             Reon
           </span>
           <span className="ml-1 text-black/80 dark:text-white/80">GPT</span>
@@ -37,9 +33,9 @@ export default function Header({ onClear }: Props) {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
+            onClick={toggle}
             className="rounded-full border border-black/10 p-2 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            aria-label="Toggle theme"
           >
             {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>

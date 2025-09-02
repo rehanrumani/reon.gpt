@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { Clipboard, Check, RefreshCw } from "lucide-react";
 
-interface Props {
+export default function ChatMessage({
+  role,
+  content,
+  onRegenerate,
+}: {
   role: "user" | "assistant";
   content: string;
   onRegenerate?: () => void;
-}
-
-export default function ChatMessage({ role, content, onRegenerate }: Props) {
+}) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
